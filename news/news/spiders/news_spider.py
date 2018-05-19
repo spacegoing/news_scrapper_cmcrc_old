@@ -29,13 +29,12 @@ class LoginSpider(scrapy.Spider):
         name_mkt_url_mat = pd.read_csv('total_secs.csv', header=None, index_col=None).as_matrix()
 
         # debug
-        # for i in name_mkt_url_mat:
-        i = name_mkt_url_mat[260,:]
-        yield scrapy.Request(i[2]+'news/', callback=self.parse_first_page,
-                                meta={'name': i[0],
-                                    'mkt': i[1],
-                                    'url': i[2]
-                                }, dont_filter=True)
+        for i in name_mkt_url_mat:
+            yield scrapy.Request(i[2]+'news/', callback=self.parse_first_page,
+                                    meta={'name': i[0],
+                                        'mkt': i[1],
+                                        'url': i[2]
+                                    }, dont_filter=True)
 
     def parse_first_page(self, response):
         """
@@ -49,26 +48,18 @@ class LoginSpider(scrapy.Spider):
             end_pg_li = pg_li_list[end_pg_idx]
             end_page_idx = int(end_pg_li.xpath('a/text()').extract()[0].strip())
             # visit next pages
-            news_pages = [self.news_page_url_tmp % i for i in range(1, end_page_idx+1)]
+            # from scrapy.shell import inspect_response
+            # inspect_response(response, self)
+            news_pages = [response.url+'?page=%d' % i for i in range(1, end_page_idx+1)]
 
             # debug
-            for url in news_pages[5:6]:
+            for url in news_pages:
                 yield scrapy.Request(url, callback=self.parse, dont_filter=True, meta=response.meta)
         else:
             yield self.parse_return(response)
 
     def parse(self, response):
-        tr_list = response.xpath('//table[@class="noborder"]/tr')
-
-        news_list = []
-        for i in tr_list:
-            td_list = i.xpath('td')
-            date = td_list[0].xpath('text()').extract()[0].strip()
-            title = td_list[1].xpath('a/text()').extract()[0].strip()
-            url = td_list[1].xpath('a/@href').extract()[0].strip()
-            news_list.append([date, title, url])
-
-        yield {'news_list': news_list, 'meta': response.meta}
+        yield self.parse_return(response)
 
     def parse_return(self, response):
         tr_list = response.xpath('//table[@class="noborder"]/tr')
