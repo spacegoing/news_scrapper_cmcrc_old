@@ -5,9 +5,7 @@ import pandas as pd
 class LoginSpider(scrapy.Spider):
     name = 'news'
     website_url = 'https://www.stockopedia.com/'
-    share_prices_page_url = 'https://www.stockopedia.com/share-prices/?page=%d&region=au'
-    start_page_idx = 1
-    end_page_idx = start_page_idx
+    news_page_url_tmp = 'https://www.stockopedia.com/share-prices/bhp-billiton-ASX:BHP/news/?page=%d'
 
     def start_requests(self):
         yield scrapy.Request('https://www.stockopedia.com/auth/login/',callback=self.login)
@@ -28,8 +26,16 @@ class LoginSpider(scrapy.Spider):
         if b"incorrect" in response.body:
             self.logger.error("Login failed")
             return
-        init_url = self.share_prices_page_url % self.start_page_idx
-        yield scrapy.Request(init_url, callback=self.parse_first_page)
+        name_mkt_url_mat = pd.read_csv('total_secs.csv', header=None, index_col=None).as_matrix()
+
+        # debug
+        # for i in name_mkt_url_mat:
+        i = name_mkt_url_mat[260,:]
+        yield scrapy.Request(i[2]+'news/', callback=self.parse_first_page,
+                                meta={'name': i[0],
+                                    'mkt': i[1],
+                                    'url': i[2]
+                                }, dont_filter=True)
 
     def parse_first_page(self, response):
         """
@@ -37,27 +43,42 @@ class LoginSpider(scrapy.Spider):
         1. set up end_page_idx
         """
         end_pg_idx = -2 # by inspection of webpage. -1 is "Next"
-
         # get pagination list
         pg_li_list = response.xpath('//div[@class="pagination"][1]/li')
-        end_pg_li = pg_li_list[end_pg_idx]
-        self.end_page_idx = int(end_pg_li.xpath('a/text()').extract()[0])
+        if pg_li_list:
+            end_pg_li = pg_li_list[end_pg_idx]
+            end_page_idx = int(end_pg_li.xpath('a/text()').extract()[0].strip())
+            # visit next pages
+            news_pages = [self.news_page_url_tmp % i for i in range(1, end_page_idx+1)]
 
-        # visit next pages
-        shares_pages = [self.share_prices_page_url % i for i in range(self.start_page_idx, self.end_page_idx+1)]
+            # debug
+            for url in news_pages[5:6]:
+                yield scrapy.Request(url, callback=self.parse, dont_filter=True, meta=response.meta)
+        else:
+            yield self.parse_return(response)
 
-        for i,url in enumerate(shares_pages):
-            yield scrapy.Request(url, callback=self.parse_page, meta={'page_idx': i+1}, dont_filter=True)
+    def parse(self, response):
+        tr_list = response.xpath('//table[@class="noborder"]/tr')
 
-    def parse_page(self, response):
-        tr_list = response.xpath('//table/tbody/tr')
-        name_mkt_href_list = []
+        news_list = []
         for i in tr_list:
-            name = i.xpath('td[2]/a/text()').extract()[0].strip()
-            mkt = i.xpath('td[2]/span/text()').extract()[0].strip().strip('(').strip(')')
-            href = self.website_url + i.xpath('td[2]/a/@href').extract()[0].strip()
-            name_mkt_href_list.append([name, mkt, href])
+            td_list = i.xpath('td')
+            date = td_list[0].xpath('text()').extract()[0].strip()
+            title = td_list[1].xpath('a/text()').extract()[0].strip()
+            url = td_list[1].xpath('a/@href').extract()[0].strip()
+            news_list.append([date, title, url])
 
-        pd.DataFrame(name_mkt_href_list).to_csv('./name_mkt_url_data/%d.csv' % response.meta['page_idx']
-                                                , header=False, index=False)
+        yield {'news_list': news_list, 'meta': response.meta}
 
+    def parse_return(self, response):
+        tr_list = response.xpath('//table[@class="noborder"]/tr')
+
+        news_list = []
+        for i in tr_list:
+            td_list = i.xpath('td')
+            date = td_list[0].xpath('text()').extract()[0].strip()
+            title = td_list[1].xpath('a/text()').extract()[0].strip()
+            url = td_list[1].xpath('a/@href').extract()[0].strip()
+            news_list.append([date, title, url])
+
+        return {'news_list': news_list, 'meta': response.meta}
