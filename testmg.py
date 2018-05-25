@@ -5,7 +5,7 @@ import pandas as pd
 
 client = MongoClient('mongodb://localhost:27017/')
 db = client['stockopedia']
-title_col = db['title']
+title_col = db['asx_title']
 
 start = dp.parse("2017-11-07")
 end = dp.parse('2017-11-08')

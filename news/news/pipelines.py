@@ -14,7 +14,7 @@ class NewsPipeline(object):
     def open_spider(self, spider):
         self.client = MongoClient('mongodb://localhost:27017/')
         self.db = self.client['stockopedia']
-        self.title_col = self.db['title']
+        self.title_col = self.db['asx_title']
 
     def process_item(self, item, spider):
         news_list = item['news_list']

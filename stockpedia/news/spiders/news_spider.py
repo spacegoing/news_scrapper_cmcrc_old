@@ -3,7 +3,7 @@ import scrapy
 import pandas as pd
 
 class LoginSpider(scrapy.Spider):
-    name = 'news'
+    name = 'stock_url'
     website_url = 'https://www.stockopedia.com/'
     share_prices_page_url = 'https://www.stockopedia.com/share-prices/?page=%d&region=au'
     start_page_idx = 1
