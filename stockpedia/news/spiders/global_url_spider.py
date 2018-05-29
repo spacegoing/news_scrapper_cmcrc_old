@@ -5,7 +5,7 @@ import pandas as pd
 class LoginSpider(scrapy.Spider):
     name = 'stock_url'
     website_url = 'https://www.stockopedia.com/'
-    share_prices_page_url = 'https://www.stockopedia.com/share-prices/?page=%d&region=au'
+    share_prices_page_url = 'https://www.stockopedia.com/share-prices/?page=%d'
     start_page_idx = 1
     end_page_idx = start_page_idx
 
@@ -50,14 +50,22 @@ class LoginSpider(scrapy.Spider):
             yield scrapy.Request(url, callback=self.parse_page, meta={'page_idx': i+1}, dont_filter=True)
 
     def parse_page(self, response):
+        self.logger.info(response.url)
         tr_list = response.xpath('//table/tbody/tr')
-        name_mkt_href_list = []
+        nation_name_mkt_href_ticker_list = []
         for i in tr_list:
+            nation = i.xpath('td[1]/img/@alt').extract()[0].strip()
             name = i.xpath('td[2]/a/text()').extract()[0].strip()
             mkt = i.xpath('td[2]/span/text()').extract()[0].strip().strip('(').strip(')')
             href = self.website_url + i.xpath('td[2]/a/@href').extract()[0].strip()
-            name_mkt_href_list.append([name, mkt, href])
+            ticker = i.xpath('td[3]/text()').extract()[0].strip()
+            nation_name_mkt_href_ticker_list.append({
+                "nation": nation,
+                "name": name,
+                "mkt": mkt,
+                "href": href,
+                "ticker": ticker
+            })
 
-        pd.DataFrame(name_mkt_href_list).to_csv('./name_mkt_url_data/%d.csv' % response.meta['page_idx']
-                                                , header=False, index=False)
+        return {'nation_name_mkt_href_ticker_list': nation_name_mkt_href_ticker_list}
 
