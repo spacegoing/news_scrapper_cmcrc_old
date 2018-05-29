@@ -24,3 +24,6 @@ class NewsPipeline(object):
         if item:
             self.col.insert_many(item['nation_name_mkt_href_ticker_list'])
         return item
+
+    def close_spider(self, spider):
+        self.client.close()
